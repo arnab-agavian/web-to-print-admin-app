@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
 import { initialCustomers, initialOrders, initialProducts } from './adminData';
 import Login from './components/auth/Login';
+import Signup from './components/auth/Signup';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import OrderDrawer from './components/orders/OrderDrawer';
@@ -10,8 +12,9 @@ import NewOrderModal from './components/orders/NewOrderModal';
 import AddProductModal from './components/products/AddProductModal';
 import AppRoutes from './routes/AppRoutes';
 import { statusLabel } from './utils/formatters';
+import { clearLoginFeedback, clearSignupFeedback, logoutUser } from './redux/slices/authSlice';
 
-function AdminWorkspace({ onLogout }) {
+function AdminWorkspace({ onLogout, user, logoutStatus, logoutError }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState(initialOrders);
   const [products, setProducts] = useState(initialProducts);
@@ -46,13 +49,30 @@ function AdminWorkspace({ onLogout }) {
     setProducts([...products, { id, name: form.name, category: form.category, price: Number(form.price), stock: 'In stock', orders: 0 }]); setNewProductOpen(false); showToast(`${form.name} added to products.`);
   };
   const viewCustomerOrders = (name) => { setSearch(name); navigate('/orders'); };
-  const logout = () => { sessionStorage.removeItem('dh-admin'); onLogout(); };
+  const logout = () => { onLogout(); };
 
-  return <div className={`admin-shell ${collapsed ? 'nav-collapsed' : ''}`}><Sidebar orders={orders} collapsed={collapsed} setCollapsed={setCollapsed} /><div className="admin-content"><Header search={search} setSearch={setSearch} onNewOrder={() => setNewOrderOpen(true)} onLogout={logout} /><main><AppRoutes orders={orders} products={products} customers={initialCustomers} search={search} setSearch={setSearch} onOpenOrder={setSelectedId} onAddProduct={() => setNewProductOpen(true)} onViewCustomerOrders={viewCustomerOrders} /></main></div>{selectedOrder && <OrderDrawer order={selectedOrder} onClose={() => setSelectedId(null)} onTransition={transition} onDownload={download} />}{newOrderOpen && <NewOrderModal customers={initialCustomers} products={products} onClose={() => setNewOrderOpen(false)} onCreate={createOrder} />}{newProductOpen && <AddProductModal onClose={() => setNewProductOpen(false)} onCreate={createProduct} />}{toast && <div className="toast"><CheckCircle2 />{toast}</div>}</div>;
+  return <div className={`admin-shell ${collapsed ? 'nav-collapsed' : ''}`}><Sidebar orders={orders} collapsed={collapsed} setCollapsed={setCollapsed} user={user} /><div className="admin-content"><Header search={search} setSearch={setSearch} onNewOrder={() => setNewOrderOpen(true)} onLogout={logout} loggingOut={logoutStatus === 'loading'} /><main><AppRoutes orders={orders} products={products} customers={initialCustomers} search={search} setSearch={setSearch} onOpenOrder={setSelectedId} onAddProduct={() => setNewProductOpen(true)} onViewCustomerOrders={viewCustomerOrders} /></main></div>{selectedOrder && <OrderDrawer order={selectedOrder} onClose={() => setSelectedId(null)} onTransition={transition} onDownload={download} />}{newOrderOpen && <NewOrderModal customers={initialCustomers} products={products} onClose={() => setNewOrderOpen(false)} onCreate={createOrder} />}{newProductOpen && <AddProductModal onClose={() => setNewProductOpen(false)} onCreate={createProduct} />}{toast && <div className="toast"><CheckCircle2 />{toast}</div>}{logoutError && <div className="toast auth-error-toast" role="alert"><AlertCircle />{logoutError}</div>}</div>;
 }
 
 export default function AppContainer() {
-  const [loggedIn, setLoggedIn] = useState(() => sessionStorage.getItem('dh-admin') === 'true');
-  const login = () => { sessionStorage.setItem('dh-admin', 'true'); setLoggedIn(true); };
-  return loggedIn ? <BrowserRouter><AdminWorkspace onLogout={() => setLoggedIn(false)} /></BrowserRouter> : <Login onLogin={login} />;
+  const dispatch = useDispatch();
+  const { isAuthenticated, user, logoutStatus, logoutError } = useSelector((state) => state.auth);
+  const [authView, setAuthView] = useState('login');
+  const [authNotice, setAuthNotice] = useState('');
+  const showLogin = (notice = '') => {
+    dispatch(clearSignupFeedback());
+    setAuthNotice(notice);
+    setAuthView('login');
+  };
+  const showSignup = () => {
+    dispatch(clearLoginFeedback());
+    setAuthNotice('');
+    setAuthView('signup');
+  };
+  const signupComplete = (result) => {
+    if (!result.session?.accessToken) showLogin(result.message || 'Account created. Confirm your email, then sign in.');
+  };
+  if (isAuthenticated) return <BrowserRouter><AdminWorkspace onLogout={() => dispatch(logoutUser())} user={user} logoutStatus={logoutStatus} logoutError={logoutError} /></BrowserRouter>;
+  if (authView === 'signup') return <Signup onSignupSuccess={signupComplete} onShowLogin={() => showLogin()} />;
+  return <Login notice={authNotice} onShowSignup={showSignup} />;
 }
