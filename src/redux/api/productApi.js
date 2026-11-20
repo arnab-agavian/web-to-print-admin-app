@@ -43,6 +43,6 @@ export async function createProductRequest(product) {
 
 export async function updateProductRequest(originalSlug, product) {
   const payload = productPayload(product);
-  const { data } = await axiosInstance.patch(`/products/${encodeURIComponent(originalSlug)}`, payload);
+  const { data } = await axiosInstance.put(`/products/${encodeURIComponent(originalSlug)}`, payload);
   return responseData(data);
 }

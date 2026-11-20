@@ -49,6 +49,21 @@ export function getAccessToken() {
   return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : null;
 }
 
+export function isAccessTokenExpired(token, now = Date.now()) {
+  if (!token) return true;
+  const expiresAt = Number(decodeAccessToken(token)?.exp);
+  return Number.isFinite(expiresAt) && expiresAt * 1000 <= now;
+}
+
+export function getValidAccessToken() {
+  const token = getAccessToken();
+  if (token && isAccessTokenExpired(token)) {
+    removeAccessToken();
+    return null;
+  }
+  return token;
+}
+
 export function saveAccessToken(token, expiresIn) {
   if (!token) return;
   const lifetime = Number(expiresIn);

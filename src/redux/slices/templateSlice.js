@@ -32,11 +32,11 @@ export const createTemplate = createAsyncThunk('templates/createTemplate', async
     const upload = await uploadThumbnail(thumbnailFile);
     const created = await createTemplateRequest(productSlug, {
       ...template,
-      thumbnailPath: upload?.path ?? template.thumbnailPath,
+      thumbnailPath: upload?.publicUrl ?? template.thumbnailPath,
     });
     return {
       ...created,
-      thumbnail: upload?.signedUrl ?? created.thumbnail ?? created.thumbnailUrl ?? template.thumbnail,
+      thumbnail: upload?.publicUrl ?? created.thumbnail ?? created.thumbnailUrl ?? template.thumbnail,
     };
   } catch (error) {
     return rejectWithValue(apiError(error));
@@ -48,11 +48,11 @@ export const updateTemplate = createAsyncThunk('templates/updateTemplate', async
     const upload = await uploadThumbnail(thumbnailFile);
     const updated = await updateTemplateRequest(templateId, {
       ...template,
-      thumbnailPath: upload?.path ?? template.thumbnailPath,
+      thumbnailPath: upload?.publicUrl ?? template.thumbnailPath,
     });
     return {
       ...updated,
-      thumbnail: upload?.signedUrl ?? updated.thumbnail ?? updated.thumbnailUrl ?? template.thumbnail,
+      thumbnail: upload?.publicUrl ?? updated.thumbnail ?? updated.thumbnailUrl ?? template.thumbnail,
     };
   } catch (error) {
     return rejectWithValue(apiError(error));

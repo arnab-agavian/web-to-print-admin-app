@@ -82,7 +82,7 @@ function normalizePlaceholder(placeholder) {
 }
 
 function thumbnailUrl(template) {
-  return template.thumbnail || template.thumbnailUrl || template.thumbnailSignedUrl || template.signedUrl || '';
+  return template.thumbnail || template.thumbnailUrl || template.thumbnailPublicUrl || template.publicUrl || template.thumbnailPath || '';
 }
 
 function initialTemplate(product, template) {

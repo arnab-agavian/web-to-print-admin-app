@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { loginRequest, logoutRequest, signupRequest } from '../api/authApi';
-import { getAccessToken, getUserFromAccessToken, removeAccessToken, saveAccessToken } from '../api/tokenCookie';
+import { getUserFromAccessToken, getValidAccessToken, removeAccessToken, saveAccessToken } from '../api/tokenCookie';
 
 function apiError(error) {
   return error.response?.data?.message
@@ -31,17 +31,17 @@ export const signupUser = createAsyncThunk('auth/signup', async (account, { reje
   }
 });
 
-export const logoutUser = createAsyncThunk('auth/logout', async (_, { rejectWithValue }) => {
+export const logoutUser = createAsyncThunk('auth/logout', async () => {
   try {
-    const result = await logoutRequest();
+    return await logoutRequest();
+  } catch {
+    return { message: 'Signed out locally.' };
+  } finally {
     removeAccessToken();
-    return result;
-  } catch (error) {
-    return rejectWithValue(apiError(error));
   }
 });
 
-const existingAccessToken = getAccessToken();
+const existingAccessToken = getValidAccessToken();
 const existingUser = getUserFromAccessToken(existingAccessToken);
 
 const authSlice = createSlice({
@@ -65,6 +65,14 @@ const authSlice = createSlice({
     clearSignupFeedback(state) {
       state.signupError = null;
       state.signupMessage = '';
+    },
+    sessionExpired(state) {
+      state.user = null;
+      state.accessToken = null;
+      state.isAuthenticated = false;
+      state.loginStatus = 'idle';
+      state.logoutStatus = 'idle';
+      state.loginError = 'Your session expired. Please sign in again.';
     },
   },
   extraReducers: (builder) => {
@@ -110,6 +118,9 @@ const authSlice = createSlice({
         state.signupError = action.payload || 'Unable to create your account.';
       })
       .addCase(logoutUser.pending, (state) => {
+        state.user = null;
+        state.accessToken = null;
+        state.isAuthenticated = false;
         state.logoutStatus = 'loading';
         state.logoutError = null;
       })
@@ -132,5 +143,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearLoginFeedback, clearSignupFeedback } = authSlice.actions;
+export const { clearLoginFeedback, clearSignupFeedback, sessionExpired } = authSlice.actions;
 export default authSlice.reducer;

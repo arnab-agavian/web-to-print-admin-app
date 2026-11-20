@@ -47,7 +47,7 @@ export async function createTemplateRequest(productSlug, template) {
 }
 
 export async function updateTemplateRequest(templateId, template) {
-  const { data } = await axiosInstance.patch(
+  const { data } = await axiosInstance.put(
     `/templates/${encodeURIComponent(templateId)}`,
     templatePayload(template),
   );

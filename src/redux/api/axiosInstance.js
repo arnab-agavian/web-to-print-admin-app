@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getAccessToken } from "./tokenCookie";
+import { getAccessToken, getValidAccessToken, removeAccessToken } from "./tokenCookie";
 
 const apiBaseUrl = import.meta.env.VITE_API_URL;
 
@@ -13,9 +13,23 @@ const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use((config) => {
-  const accessToken = getAccessToken();
+  const hadSession = Boolean(getAccessToken());
+  const accessToken = getValidAccessToken();
+  if (hadSession && !accessToken) window.dispatchEvent(new CustomEvent("auth:unauthorized"));
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
 });
+
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const hadSession = Boolean(getAccessToken());
+    if (error.response?.status === 401 && hadSession) {
+      removeAccessToken();
+      window.dispatchEvent(new CustomEvent("auth:unauthorized"));
+    }
+    return Promise.reject(error);
+  },
+);
 
 export default axiosInstance;
