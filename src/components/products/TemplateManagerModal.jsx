@@ -124,6 +124,8 @@ function TemplateForm({ product, template, status, apiError, clearError, onCance
   const previewRef = useRef(null);
   const dragRef = useRef(null);
   const resizeRef = useRef(null);
+  const safeAreaDragRef = useRef(null);
+  const safeAreaResizeRef = useRef(null);
   const loading = status === 'loading';
 
   useEffect(() => {
@@ -173,6 +175,59 @@ function TemplateForm({ product, template, status, apiError, clearError, onCance
     }));
     setLocalError('');
     if (apiError) clearError();
+  };
+  const startSafeAreaDrag = (event) => {
+    if (loading) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    safeAreaDragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      bounds: { ...form.safeArea },
+    };
+    setLocalError('');
+    if (apiError) clearError();
+  };
+  const dragSafeArea = (event) => {
+    const drag = safeAreaDragRef.current;
+    const preview = previewRef.current;
+    if (!drag || !preview) return;
+    const rect = preview.getBoundingClientRect();
+    const width = Number(drag.bounds.width);
+    const height = Number(drag.bounds.height);
+    const x = Math.min(Math.max(Number(drag.bounds.x) + ((event.clientX - drag.startX) / rect.width) * canvasWidth, 0), Math.max(canvasWidth - width, 0));
+    const y = Math.min(Math.max(Number(drag.bounds.y) + ((event.clientY - drag.startY) / rect.height) * canvasHeight, 0), Math.max(canvasHeight - height, 0));
+    setForm((current) => ({ ...current, safeArea: { ...current.safeArea, x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) } }));
+  };
+  const stopSafeAreaDrag = () => { safeAreaDragRef.current = null; };
+  const startSafeAreaResize = (event) => {
+    if (loading) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    safeAreaResizeRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      bounds: { ...form.safeArea },
+    };
+    setLocalError('');
+    if (apiError) clearError();
+  };
+  const resizeSafeArea = (event) => {
+    const resize = safeAreaResizeRef.current;
+    const preview = previewRef.current;
+    if (!resize || !preview) return;
+    event.stopPropagation();
+    const rect = preview.getBoundingClientRect();
+    const availableWidth = Math.max(canvasWidth - Number(resize.bounds.x), 5);
+    const availableHeight = Math.max(canvasHeight - Number(resize.bounds.y), 5);
+    const width = Math.min(Math.max(Number(resize.bounds.width) + ((event.clientX - resize.startX) / rect.width) * canvasWidth, 5), availableWidth);
+    const height = Math.min(Math.max(Number(resize.bounds.height) + ((event.clientY - resize.startY) / rect.height) * canvasHeight, 5), availableHeight);
+    setForm((current) => ({ ...current, safeArea: { ...current.safeArea, width: Number(width.toFixed(1)), height: Number(height.toFixed(1)) } }));
+  };
+  const stopSafeAreaResize = (event) => {
+    event.stopPropagation();
+    safeAreaResizeRef.current = null;
   };
   const startDrag = (key, event) => {
     if (loading) return;
@@ -309,94 +364,98 @@ function TemplateForm({ product, template, status, apiError, clearError, onCance
         <button type="button" onClick={onCancel} disabled={loading}><X /></button>
       </div>
       <div className="template-editor-layout">
-      <div className="template-editor-fields">
-      <AppTextField label="Template name" required slotProps={{ htmlInput: { minLength: 2, maxLength: 200 } }} value={form.name} onChange={update('name')} disabled={loading} placeholder="e.g. Race board 240 × 180" />
-      <div className="form-row">
-        <AppTextField label="Canvas width (mm)" required type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.canvasWidth} onChange={update('canvasWidth')} disabled={loading} />
-        <AppTextField label="Canvas height (mm)" required type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.canvasHeight} onChange={update('canvasHeight')} disabled={loading} />
-      </div>
-      <p className="modal-section-label">SAFE AREA (MM)</p>
-      <div className="template-safe-grid">
-        <AppTextField label="X" required type="number" slotProps={{ htmlInput: { min: 0, step: 0.01 } }} value={form.safeArea.x} onChange={updateSafeArea('x')} disabled={loading} />
-        <AppTextField label="Y" required type="number" slotProps={{ htmlInput: { min: 0, step: 0.01 } }} value={form.safeArea.y} onChange={updateSafeArea('y')} disabled={loading} />
-        <AppTextField label="Width" required type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.safeArea.width} onChange={updateSafeArea('width')} disabled={loading} />
-        <AppTextField label="Height" required type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.safeArea.height} onChange={updateSafeArea('height')} disabled={loading} />
-      </div>
-      <div className="placeholder-field">
-        <span>Placeholders</span>
-        <div className="placeholder-options">
-          {Object.entries(placeholderDefinitions).map(([key, definition]) => {
-            const selected = selectedPlaceholders.includes(key);
-            const active = activePlaceholder === key;
-            return <div className={`placeholder-option ${selected ? 'selected' : ''} ${active ? 'active' : ''}`} key={key}><Checkbox size="small" checked={selected} onChange={() => togglePlaceholder(key)} disabled={loading} inputProps={{ 'aria-label': `Include ${definition.label}` }} /><button type="button" onClick={() => selectPlaceholderForEditing(key)} disabled={loading}><b>{placeholders[key].label}</b><small>{definition.type === 'image' ? 'Image upload' : placeholders[key].required ? 'Required text' : 'Optional text'}</small></button></div>;
-          })}
-        </div>
-        <small>Use the checkbox to include a field. Click its name to edit it.</small>
-      </div>
-      {activeDefinition && selectedPlaceholders.includes(activePlaceholder) && (
-        <div className="placeholder-inspector">
-          <div className="placeholder-inspector-head"><span>EDIT PLACEHOLDER</span><b>{activeDefinition.label}</b></div>
+        <div className="template-editor-fields">
+          <AppTextField label="Template name" required slotProps={{ htmlInput: { minLength: 2, maxLength: 200 } }} value={form.name} onChange={update('name')} disabled={loading} placeholder="e.g. Race board 240 × 180" />
           <div className="form-row">
-            <AppTextField label="Label" value={activeDefinition.label} onChange={(event) => updatePlaceholder(activePlaceholder, { label: event.target.value })} disabled={loading} />
-            <AppTextField label="Type" value={activeDefinition.type} disabled />
+            <AppTextField label="Canvas width (mm)" required type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.canvasWidth} onChange={update('canvasWidth')} disabled={loading} />
+            <AppTextField label="Canvas height (mm)" required type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.canvasHeight} onChange={update('canvasHeight')} disabled={loading} />
           </div>
-          <FormControlLabel className="placeholder-required" control={<Checkbox checked={activeDefinition.required} onChange={(event) => updatePlaceholder(activePlaceholder, { required: event.target.checked })} disabled={loading} />} label="Required field" />
-          <p className="modal-section-label">POSITION & SIZE (MM)</p>
+          <p className="modal-section-label">SAFE AREA (MM)</p>
           <div className="template-safe-grid">
-            <AppTextField label="X" type="number" slotProps={{ htmlInput: { min: 0, step: 0.1 } }} value={activeDefinition.bounds.x} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'bounds', 'x', event.target.value)} disabled={loading} />
-            <AppTextField label="Y" type="number" slotProps={{ htmlInput: { min: 0, step: 0.1 } }} value={activeDefinition.bounds.y} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'bounds', 'y', event.target.value)} disabled={loading} />
-            <AppTextField label="Width" type="number" slotProps={{ htmlInput: { min: 0.1, step: 0.1 } }} value={activeDefinition.bounds.width} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'bounds', 'width', event.target.value)} disabled={loading} />
-            <AppTextField label="Height" type="number" slotProps={{ htmlInput: { min: 0.1, step: 0.1 } }} value={activeDefinition.bounds.height} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'bounds', 'height', event.target.value)} disabled={loading} />
+            <AppTextField label="X" required type="number" slotProps={{ htmlInput: { min: 0, step: 0.01 } }} value={form.safeArea.x} onChange={updateSafeArea('x')} disabled={loading} />
+            <AppTextField label="Y" required type="number" slotProps={{ htmlInput: { min: 0, step: 0.01 } }} value={form.safeArea.y} onChange={updateSafeArea('y')} disabled={loading} />
+            <AppTextField label="Width" required type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.safeArea.width} onChange={updateSafeArea('width')} disabled={loading} />
+            <AppTextField label="Height" required type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.safeArea.height} onChange={updateSafeArea('height')} disabled={loading} />
           </div>
-          {activeDefinition.type === 'text' ? (
-            <>
-              <p className="modal-section-label">TEXT STYLE</p>
+          <div className="placeholder-field">
+            <span>Placeholders</span>
+            <div className="placeholder-options">
+              {Object.entries(placeholderDefinitions).map(([key, definition]) => {
+                const selected = selectedPlaceholders.includes(key);
+                const active = activePlaceholder === key;
+                return <div className={`placeholder-option ${selected ? 'selected' : ''} ${active ? 'active' : ''}`} key={key}><Checkbox size="small" checked={selected} onChange={() => togglePlaceholder(key)} disabled={loading} inputProps={{ 'aria-label': `Include ${definition.label}` }} /><button type="button" onClick={() => selectPlaceholderForEditing(key)} disabled={loading}><b>{placeholders[key].label}</b><small>{definition.type === 'image' ? 'Image upload' : placeholders[key].required ? 'Required text' : 'Optional text'}</small></button></div>;
+              })}
+            </div>
+            <small>Use the checkbox to include a field. Click its name to edit it.</small>
+          </div>
+          {activeDefinition && selectedPlaceholders.includes(activePlaceholder) && (
+            <div className="placeholder-inspector">
+              <div className="placeholder-inspector-head"><span>EDIT PLACEHOLDER</span><b>{activeDefinition.label}</b></div>
               <div className="form-row">
-                <AppTextField label="Font family" value={activeDefinition.style.fontFamily} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'style', 'fontFamily', event.target.value)} disabled={loading} />
-                <AppTextField label="Font size" type="number" slotProps={{ htmlInput: { min: 1 } }} value={activeDefinition.style.fontSize} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'style', 'fontSize', event.target.value)} disabled={loading} />
+                <AppTextField label="Label" value={activeDefinition.label} onChange={(event) => updatePlaceholder(activePlaceholder, { label: event.target.value })} disabled={loading} />
+                <AppTextField label="Type" value={activeDefinition.type} disabled />
               </div>
-              <div className="form-row">
-                <AppSelectField label="Alignment" value={activeDefinition.style.textAlign} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'style', 'textAlign', event.target.value)} disabled={loading} options={['left', 'center', 'right']} />
-                <AppTextField label="Colour" className="placeholder-colour" type="color" value={activeDefinition.style.color} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'style', 'color', event.target.value)} disabled={loading} />
+              <FormControlLabel className="placeholder-required" control={<Checkbox checked={activeDefinition.required} onChange={(event) => updatePlaceholder(activePlaceholder, { required: event.target.checked })} disabled={loading} />} label="Required field" />
+              <p className="modal-section-label">POSITION & SIZE (MM)</p>
+              <div className="template-safe-grid">
+                <AppTextField label="X" type="number" slotProps={{ htmlInput: { min: 0, step: 0.1 } }} value={activeDefinition.bounds.x} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'bounds', 'x', event.target.value)} disabled={loading} />
+                <AppTextField label="Y" type="number" slotProps={{ htmlInput: { min: 0, step: 0.1 } }} value={activeDefinition.bounds.y} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'bounds', 'y', event.target.value)} disabled={loading} />
+                <AppTextField label="Width" type="number" slotProps={{ htmlInput: { min: 0.1, step: 0.1 } }} value={activeDefinition.bounds.width} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'bounds', 'width', event.target.value)} disabled={loading} />
+                <AppTextField label="Height" type="number" slotProps={{ htmlInput: { min: 0.1, step: 0.1 } }} value={activeDefinition.bounds.height} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'bounds', 'height', event.target.value)} disabled={loading} />
               </div>
-              <div className="form-row">
-                <AppTextField label="Maximum length" type="number" slotProps={{ htmlInput: { min: 1 } }} value={activeDefinition.validation.maxLength ?? ''} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'validation', 'maxLength', event.target.value)} disabled={loading} />
-                <AppTextField label="Pattern" value={activeDefinition.validation.pattern ?? ''} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'validation', 'pattern', event.target.value)} disabled={loading} placeholder="Optional regex" />
-              </div>
-            </>
-          ) : (
-            <><p className="modal-section-label">IMAGE STYLE</p><AppSelectField label="Image fit" value={activeDefinition.fit} onChange={(event) => updatePlaceholder(activePlaceholder, { fit: event.target.value })} disabled={loading} options={['contain', 'cover', 'fill']} /></>
+              {activeDefinition.type === 'text' ? (
+                <>
+                  <p className="modal-section-label">TEXT STYLE</p>
+                  <div className="form-row">
+                    <AppTextField label="Font family" value={activeDefinition.style.fontFamily} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'style', 'fontFamily', event.target.value)} disabled={loading} />
+                    <AppTextField label="Font size" type="number" slotProps={{ htmlInput: { min: 1 } }} value={activeDefinition.style.fontSize} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'style', 'fontSize', event.target.value)} disabled={loading} />
+                  </div>
+                  <div className="form-row">
+                    <AppSelectField label="Alignment" value={activeDefinition.style.textAlign} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'style', 'textAlign', event.target.value)} disabled={loading} options={['left', 'center', 'right']} />
+                    <AppTextField label="Colour" className="placeholder-colour" type="color" value={activeDefinition.style.color} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'style', 'color', event.target.value)} disabled={loading} />
+                  </div>
+                  <div className="form-row">
+                    <AppTextField label="Maximum length" type="number" slotProps={{ htmlInput: { min: 1 } }} value={activeDefinition.validation.maxLength ?? ''} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'validation', 'maxLength', event.target.value)} disabled={loading} />
+                    <AppTextField label="Pattern" value={activeDefinition.validation.pattern ?? ''} onChange={(event) => updatePlaceholderSection(activePlaceholder, 'validation', 'pattern', event.target.value)} disabled={loading} placeholder="Optional regex" />
+                  </div>
+                </>
+              ) : (
+                <><p className="modal-section-label">IMAGE STYLE</p><AppSelectField label="Image fit" value={activeDefinition.fit} onChange={(event) => updatePlaceholder(activePlaceholder, { fit: event.target.value })} disabled={loading} options={['contain', 'cover', 'fill']} /></>
+              )}
+            </div>
           )}
-        </div>
-      )}
-      <div className="thumbnail-field">
-        <span>Thumbnail</span>
-        <div className="thumbnail-picker">
-          {previewUrl ? <img src={previewUrl} alt="Template thumbnail preview" /> : <div><ImagePlus /><small>No thumbnail selected</small></div>}
-          <div><Button component="label" variant="outlined" className="thumbnail-button" disabled={loading}>Choose image<input className="visually-hidden-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseThumbnail} /></Button><small>PNG, JPEG, or WebP · max 10 MB</small>{(previewUrl || form.thumbnailPath) && <button type="button" onClick={removeThumbnail} disabled={loading}>Remove thumbnail</button>}</div>
-        </div>
-      </div>
-      {error && <div className="form-error" role="alert">{error}</div>}
-      <footer><button type="button" className="secondary-button" onClick={onCancel} disabled={loading}>Cancel</button><button className="primary-button" type="submit" disabled={loading} aria-busy={loading}>{loading ? 'Saving template…' : template ? 'Save template' : 'Create template'}</button></footer>
-      </div>
-      <aside className="template-preview-panel">
-        <div className="template-preview-head"><div><b>Canvas preview</b><small>{canvasWidth} × {canvasHeight} mm</small></div><span>Drag to move · corner to resize</span></div>
-        <div className="template-canvas-wrap">
-          <div className="template-canvas" ref={previewRef} style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}>
-            <div className="template-safe-area" style={safeAreaStyle}><span>SAFE AREA</span></div>
-            {selectedPlaceholders.map((key) => {
-              const placeholder = placeholders[key];
-              const { bounds } = placeholder;
-              const justifyContent = placeholder.style?.textAlign === 'left' ? 'flex-start' : placeholder.style?.textAlign === 'right' ? 'flex-end' : 'center';
-              return <button type="button" key={key} className={`canvas-placeholder canvas-placeholder-${placeholder.type} ${activePlaceholder === key ? 'active' : ''}`} style={{ left: `${(Number(bounds.x) / canvasWidth) * 100}%`, top: `${(Number(bounds.y) / canvasHeight) * 100}%`, width: `${(Number(bounds.width) / canvasWidth) * 100}%`, height: `${(Number(bounds.height) / canvasHeight) * 100}%`, color: placeholder.style?.color, fontFamily: placeholder.style?.fontFamily, fontSize: `${Math.max(9, Math.min(Number(placeholder.style?.fontSize ?? 14) * .45, 42))}px`, justifyContent }} onPointerDown={(event) => startDrag(key, event)} onPointerMove={dragPlaceholder} onPointerUp={stopDrag} onPointerCancel={stopDrag} title={`Drag ${placeholder.label}`}>
-                {placeholder.type === 'image' ? <><FileImage /><span>{placeholder.label}</span></> : key === 'raceNumber' ? '123' : placeholder.label}
-                <i className="canvas-resize-handle" onPointerDown={(event) => startResize(key, event)} onPointerMove={resizePlaceholder} onPointerUp={stopResize} onPointerCancel={stopResize} title={`Resize ${placeholder.label}`} />
-              </button>;
-            })}
+          <div className="thumbnail-field">
+            <span>Thumbnail</span>
+            <div className="thumbnail-picker">
+              {previewUrl ? <img src={previewUrl} alt="Template thumbnail preview" /> : <div><ImagePlus /><small>No thumbnail selected</small></div>}
+              <div><Button component="label" variant="outlined" className="thumbnail-button" disabled={loading}>Choose image<input className="visually-hidden-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseThumbnail} /></Button><small>PNG, JPEG, or WebP · max 10 MB</small>{(previewUrl || form.thumbnailPath) && <button type="button" onClick={removeThumbnail} disabled={loading}>Remove thumbnail</button>}</div>
+            </div>
           </div>
+          {error && <div className="form-error" role="alert">{error}</div>}
+          <footer><button type="button" className="secondary-button" onClick={onCancel} disabled={loading}>Cancel</button><button className="primary-button" type="submit" disabled={loading} aria-busy={loading}>{loading ? 'Saving template…' : template ? 'Save template' : 'Create template'}</button></footer>
         </div>
-        {activeDefinition && <div className="template-preview-meta"><b>{activeDefinition.label}</b><span>X {activeDefinition.bounds.x} · Y {activeDefinition.bounds.y} · {activeDefinition.bounds.width} × {activeDefinition.bounds.height} mm</span></div>}
-      </aside>
+        <aside className="template-preview-panel">
+          <div className="template-preview-head"><div><b>Canvas preview</b><small>{canvasWidth} × {canvasHeight} mm</small></div><span>Drag to move · corner to resize</span></div>
+          <div className="template-canvas-wrap">
+            <div className="template-canvas" ref={previewRef} style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}>
+              <div className={`template-safe-area ${previewUrl ? 'has-thumbnail' : ''}`} style={safeAreaStyle} onPointerDown={startSafeAreaDrag} onPointerMove={dragSafeArea} onPointerUp={stopSafeAreaDrag} onPointerCancel={stopSafeAreaDrag} title="Drag to move the safe area">
+                {previewUrl && <img src={previewUrl} alt="" aria-hidden="true" />}
+                <span>SAFE AREA</span>
+                <i className="safe-area-resize-handle" onPointerDown={startSafeAreaResize} onPointerMove={resizeSafeArea} onPointerUp={stopSafeAreaResize} onPointerCancel={stopSafeAreaResize} title="Resize the safe area" />
+              </div>
+              {selectedPlaceholders.map((key) => {
+                const placeholder = placeholders[key];
+                const { bounds } = placeholder;
+                const justifyContent = placeholder.style?.textAlign === 'left' ? 'flex-start' : placeholder.style?.textAlign === 'right' ? 'flex-end' : 'center';
+                return <button type="button" key={key} className={`canvas-placeholder canvas-placeholder-${placeholder.type} ${activePlaceholder === key ? 'active' : ''}`} style={{ left: `${(Number(bounds.x) / canvasWidth) * 100}%`, top: `${(Number(bounds.y) / canvasHeight) * 100}%`, width: `${(Number(bounds.width) / canvasWidth) * 100}%`, height: `${(Number(bounds.height) / canvasHeight) * 100}%`, color: placeholder.style?.color, fontFamily: placeholder.style?.fontFamily, fontSize: `${Math.max(9, Math.min(Number(placeholder.style?.fontSize ?? 14) * .45, 42))}px`, justifyContent }} onPointerDown={(event) => startDrag(key, event)} onPointerMove={dragPlaceholder} onPointerUp={stopDrag} onPointerCancel={stopDrag} title={`Drag ${placeholder.label}`}>
+                  {placeholder.type === 'image' ? <><FileImage /><span>{placeholder.label}</span></> : key === 'raceNumber' ? '123' : placeholder.label}
+                  <i className="canvas-resize-handle" onPointerDown={(event) => startResize(key, event)} onPointerMove={resizePlaceholder} onPointerUp={stopResize} onPointerCancel={stopResize} title={`Resize ${placeholder.label}`} />
+                </button>;
+              })}
+            </div>
+          </div>
+          {activeDefinition && <div className="template-preview-meta"><b>{activeDefinition.label}</b><span>X {activeDefinition.bounds.x} · Y {activeDefinition.bounds.y} · {activeDefinition.bounds.width} × {activeDefinition.bounds.height} mm</span></div>}
+        </aside>
       </div>
     </form>
   );
