@@ -46,10 +46,27 @@ function normalizePriority(value) {
   return priority.charAt(0).toUpperCase() + priority.slice(1);
 }
 
+function changeRequestText(value) {
+  if (typeof value === 'string') return value.trim();
+  if (!value || typeof value !== 'object') return '';
+  return String(value.message ?? value.details ?? value.reason ?? value.comment ?? value.text ?? '').trim();
+}
+
+function normalizeProof(proof) {
+  if (!proof || typeof proof !== 'object') return null;
+  return {
+    ...proof,
+    changeRequestMessage: proof.changeRequestMessage || changeRequestText(proof.changeRequest),
+  };
+}
+
 function normalizeOrder(order) {
   const items = Array.isArray(order.items) ? order.items : [];
-  const proofs = Array.isArray(order.proofs) ? order.proofs : [];
-  const currentProof = order.currentProof ?? proofs[proofs.length - 1] ?? null;
+  const proofs = Array.isArray(order.proofs) ? order.proofs.map(normalizeProof).filter(Boolean) : [];
+  const suppliedCurrentProof = normalizeProof(order.currentProof);
+  const currentProof = suppliedCurrentProof
+    ? proofs.find((proof) => proof.id === suppliedCurrentProof.id) ?? suppliedCurrentProof
+    : proofs[proofs.length - 1] ?? null;
   const itemQuantity = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
   const rawQuantity = Number(order.quantity ?? order.qty ?? itemQuantity);
   const quantity = Number.isFinite(rawQuantity) ? rawQuantity : 0;
@@ -90,7 +107,12 @@ function normalizeOrder(order) {
     status,
     proofStatus: proofStatus || 'not_started',
     proofVersion: Number(order.proofVersion ?? currentProof?.version ?? proofs.length ?? 0),
+    proofs,
     currentProof,
+    changeRequestMessage: order.changeRequestMessage
+      || changeRequestText(order.changeRequest)
+      || currentProof?.changeRequestMessage
+      || '',
     variableData: Boolean(order.variableData ?? order.requiresVariableData ?? false),
     format: order.outputFormat ?? order.format ?? (outputDetails || 'Production artwork'),
     notes: order.notes ?? order.productionNotes ?? `${String(order.configuration?.delivery || 'standard').replace(/_/g, ' ')} delivery · ${String(order.configuration?.paymentStatus || 'payment pending').replace(/_/g, ' ')}`,

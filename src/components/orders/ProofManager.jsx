@@ -14,6 +14,12 @@ import { AppTextField } from '../ui/AppFields';
 const acceptedPreviewTypes = ['image/png', 'image/jpeg', 'image/webp'];
 const maxPreviewSize = 10 * 1024 * 1024;
 
+function changeRequestText(value) {
+  if (typeof value === 'string') return value.trim();
+  if (!value || typeof value !== 'object') return '';
+  return String(value.message ?? value.details ?? value.reason ?? value.comment ?? value.text ?? '').trim();
+}
+
 export default function ProofManager({ order }) {
   const dispatch = useDispatch();
   const { proofMutationStatus, proofMutationError, proofMutationOrderId } = useSelector((state) => state.orders);
@@ -24,6 +30,9 @@ export default function ProofManager({ order }) {
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : ''), [file]);
   const proofs = Array.isArray(order.proofs) ? order.proofs : [];
   const currentProof = order.currentProof ?? proofs[proofs.length - 1] ?? null;
+  const requestedChanges = order.changeRequestMessage
+    || currentProof?.changeRequestMessage
+    || changeRequestText(currentProof?.changeRequest);
   const proofPreview = currentProof?.previewPath || currentProof?.previewUrl || '';
   const loading = proofMutationStatus === 'loading' && proofMutationOrderId === order.id;
   const canCreate = ['artwork', 'changes_requested'].includes(order.status);
@@ -33,6 +42,9 @@ export default function ProofManager({ order }) {
   useEffect(() => {
     dispatch(clearProofMutation());
   }, [dispatch, order.id]);
+  useEffect(() => {
+    setMessage(requestedChanges || '');
+  }, [order.id, currentProof?.id, requestedChanges]);
 
   const chooseFile = (event) => {
     const selected = event.target.files?.[0];
@@ -89,7 +101,7 @@ export default function ProofManager({ order }) {
       <div className="proof-manager-head"><span><FileImage /></span><div><p>PROOF MANAGEMENT</p><h3>{canCreate ? `Create proof version ${order.proofVersion + 1}` : canReview ? `Review proof version ${order.proofVersion || currentProof?.version || 1}` : 'Proof approved'}</h3></div></div>
       {canCreate && (
         <form onSubmit={createProof}>
-          {order.status === 'changes_requested' && <div className="proof-change-feedback"><b>Requested changes</b><p>{order.changeRequestMessage || currentProof?.changeRequestMessage || 'Review the requested changes and upload a revised proof.'}</p></div>}
+          {order.status === 'changes_requested' && <div className="proof-change-feedback"><b>Requested changes</b><p>{requestedChanges || 'Review the requested changes and upload a revised proof.'}</p></div>}
           <div className="proof-upload-row">
             <div className="proof-preview">{previewUrl ? <img src={previewUrl} alt="Selected proof preview" /> : <FileImage />}</div>
             <div><Button component="label" variant="outlined" disabled={loading} startIcon={<Upload />}>Choose preview<input className="visually-hidden-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseFile} /></Button><small>{file?.name || 'PNG, JPEG, or WebP · max 10 MB'}</small></div>
