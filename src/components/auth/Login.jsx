@@ -4,6 +4,7 @@ import { LockKeyhole } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { clearLoginFeedback, loginUser } from "../../redux/slices/authSlice";
 import { loginValidationSchema } from "./authValidation";
+import { AppTextField } from "../ui/AppFields";
 
 export default function Login({ notice, onShowSignup }) {
   const dispatch = useDispatch();
@@ -63,48 +64,30 @@ export default function Login({ notice, onShowSignup }) {
               {notice}
             </div>
           )}
-          <label>
-            Email address
-            <input
-              name="email"
-              value={formik.values.email}
-              onChange={update}
-              onBlur={formik.handleBlur}
-              type="email"
-              autoComplete="email"
-              disabled={loading}
-              aria-invalid={
-                formik.touched.email && Boolean(formik.errors.email)
-              }
-              aria-describedby="login-email-error"
-            />
-            {formik.touched.email && formik.errors.email && (
-              <small className="field-error" id="login-email-error">
-                {formik.errors.email}
-              </small>
-            )}
-          </label>
-          <label>
-            Password
-            <input
-              name="password"
-              value={formik.values.password}
-              onChange={update}
-              onBlur={formik.handleBlur}
-              type="password"
-              autoComplete="current-password"
-              disabled={loading}
-              aria-invalid={
-                formik.touched.password && Boolean(formik.errors.password)
-              }
-              aria-describedby="login-password-error"
-            />
-            {formik.touched.password && formik.errors.password && (
-              <small className="field-error" id="login-password-error">
-                {formik.errors.password}
-              </small>
-            )}
-          </label>
+          <AppTextField
+            label="Email address"
+            name="email"
+            value={formik.values.email}
+            onChange={update}
+            onBlur={formik.handleBlur}
+            type="email"
+            autoComplete="email"
+            disabled={loading}
+            error={formik.touched.email && Boolean(formik.errors.email)}
+            helperText={formik.touched.email ? formik.errors.email : ''}
+          />
+          <AppTextField
+            label="Password"
+            name="password"
+            value={formik.values.password}
+            onChange={update}
+            onBlur={formik.handleBlur}
+            type="password"
+            autoComplete="current-password"
+            disabled={loading}
+            error={formik.touched.password && Boolean(formik.errors.password)}
+            helperText={formik.touched.password ? formik.errors.password : ''}
+          />
           {loginError && (
             <div className="form-error" role="alert">
               {loginError}

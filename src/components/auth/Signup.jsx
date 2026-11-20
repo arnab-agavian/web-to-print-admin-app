@@ -1,9 +1,11 @@
 import React from 'react';
+import { Checkbox, FormControlLabel } from '@mui/material';
 import { useFormik } from 'formik';
 import { UserPlus } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearSignupFeedback, signupUser } from '../../redux/slices/authSlice';
 import { signupValidationSchema } from './authValidation';
+import { AppTextField } from '../ui/AppFields';
 
 const initialValues = {
   fullName: '',
@@ -43,6 +45,16 @@ export default function Signup({ onSignupSuccess, onShowLogin }) {
     ? <small className="field-error" id={id}>{formik.errors[name]}</small>
     : null;
 
+  const fieldProps = (name) => ({
+    name,
+    value: formik.values[name],
+    onChange: update,
+    onBlur: formik.handleBlur,
+    disabled: loading,
+    error: formik.touched[name] && Boolean(formik.errors[name]),
+    helperText: formik.touched[name] ? formik.errors[name] : '',
+  });
+
   return (
     <main className="login-page signup-page">
       <section className="login-story">
@@ -57,16 +69,16 @@ export default function Signup({ onSignupSuccess, onShowLogin }) {
           <h2>Join the studio.</h2>
           <span>Set up your production workspace in a minute.</span>
           <div className="signup-fields">
-            <label>Full name<input name="fullName" value={formik.values.fullName} onChange={update} onBlur={formik.handleBlur} type="text" autoComplete="name" placeholder="Maya Brooks" disabled={loading} aria-invalid={formik.touched.fullName && Boolean(formik.errors.fullName)} aria-describedby="signup-name-error" />{fieldError('fullName', 'signup-name-error')}</label>
-            <label>Phone number<input name="phone" value={formik.values.phone} onChange={update} onBlur={formik.handleBlur} type="tel" autoComplete="tel" placeholder="+1 919 876 5432" disabled={loading} aria-invalid={formik.touched.phone && Boolean(formik.errors.phone)} aria-describedby="signup-phone-error" />{fieldError('phone', 'signup-phone-error')}</label>
+            <AppTextField label="Full name" type="text" autoComplete="name" placeholder="Maya Brooks" {...fieldProps('fullName')} />
+            <AppTextField label="Phone number" type="tel" autoComplete="tel" placeholder="+1 919 876 5432" {...fieldProps('phone')} />
           </div>
-          <label>Email address<input name="email" value={formik.values.email} onChange={update} onBlur={formik.handleBlur} type="email" autoComplete="email" placeholder="maya@example.com" disabled={loading} aria-invalid={formik.touched.email && Boolean(formik.errors.email)} aria-describedby="signup-email-error" />{fieldError('email', 'signup-email-error')}</label>
+          <AppTextField label="Email address" type="email" autoComplete="email" placeholder="maya@example.com" {...fieldProps('email')} />
           <div className="signup-fields">
-            <label>Password<input name="password" value={formik.values.password} onChange={update} onBlur={formik.handleBlur} type="password" autoComplete="new-password" disabled={loading} aria-invalid={formik.touched.password && Boolean(formik.errors.password)} aria-describedby="signup-password-error" />{fieldError('password', 'signup-password-error')}</label>
-            <label>Confirm password<input name="confirmPassword" value={formik.values.confirmPassword} onChange={update} onBlur={formik.handleBlur} type="password" autoComplete="new-password" disabled={loading} aria-invalid={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)} aria-describedby="signup-confirm-error" />{fieldError('confirmPassword', 'signup-confirm-error')}</label>
+            <AppTextField label="Password" type="password" autoComplete="new-password" {...fieldProps('password')} />
+            <AppTextField label="Confirm password" type="password" autoComplete="new-password" {...fieldProps('confirmPassword')} />
           </div>
           <p className="password-hint">8+ characters with a capital letter and a number.</p>
-          <label className="terms-check"><input name="acceptedTerms" checked={formik.values.acceptedTerms} onChange={update} onBlur={formik.handleBlur} type="checkbox" disabled={loading} aria-invalid={formik.touched.acceptedTerms && Boolean(formik.errors.acceptedTerms)} aria-describedby="signup-terms-error" /><span>I agree to the terms of service and privacy policy.</span></label>
+          <FormControlLabel className="terms-check" control={<Checkbox name="acceptedTerms" checked={formik.values.acceptedTerms} onChange={update} onBlur={formik.handleBlur} disabled={loading} size="small" />} label="I agree to the terms of service and privacy policy." />
           {fieldError('acceptedTerms', 'signup-terms-error')}
           {signupError && <div className="form-error" role="alert">{signupError}</div>}
           <button className="primary-button login-button" type="submit" disabled={loading} aria-busy={loading}>{loading ? 'Creating account…' : 'Create account'}</button>
