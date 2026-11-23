@@ -4,6 +4,7 @@ import productReducer from "../slices/productSlice";
 import templateReducer from "../slices/templateSlice";
 import orderReducer from "../slices/orderSlice";
 import customerReducer from "../slices/customerSlice";
+import notificationReducer from "../slices/notificationSlice";
 
 const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ const store = configureStore({
     templates: templateReducer,
     orders: orderReducer,
     customers: customerReducer,
+    notifications: notificationReducer,
   },
 });
 
